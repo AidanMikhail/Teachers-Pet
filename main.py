@@ -177,6 +177,8 @@ def convertTo24(time, half):
         return f"0:{min}"
     else:
         return time
+    
+# Used to keep timer going on reminder
 async def RemindUser(timeTo, yellMember):
     if timeTo > 0:
         await asyncio.sleep(timeTo)
@@ -646,8 +648,8 @@ async def RemindMe(interaction: discord.Interaction, person: discord.User = None
         else:
             yellMember = person
 
-        await RemindUser(timeTo, yellMember)
         await interaction.response.send_message(f"I'll send them a dm when they should get to class buddy",ephemeral = True)
+        await RemindUser(timeTo, yellMember)
 
     else: # Error handling for no TimeSheet
         await interaction.response.send_message(f"Listen buddy, {check} doesn't currently have a time sheet",ephemeral = True)
