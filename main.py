@@ -6,6 +6,10 @@ import math
 import random
 import discord
 
+# API Key protection
+from dotenv import load_dotenv
+load_dotenv()
+
 import datetime
 from zoneinfo import ZoneInfo
 

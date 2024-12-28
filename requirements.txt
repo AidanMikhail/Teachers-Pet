@@ -1,2 +1,3 @@
 discord.py
 pytesseract
+python-dotenv
