@@ -177,6 +177,12 @@ def convertTo24(time, half):
         return f"0:{min}"
     else:
         return time
+async def RemindUser(timeTo, yellMember):
+    if timeTo > 0:
+        await asyncio.sleep(timeTo)
+        await yellMember.send(f"{yellMember.mention} GET TO CLASS BUDDY!!!! It's in 30 MINUTES")
+    else:
+        await yellMember.send(f"{yellMember.mention} GET TO CLASS BUDDY!!!! It's in {timeTo} MINUTES",ephemeral = True)
     
 # Get text from image
 async def getText (image):
@@ -635,20 +641,13 @@ async def RemindMe(interaction: discord.Interaction, person: discord.User = None
             return
         
         timeTo = (((dayTo * 1140) + (hourTo * 24) + minTo) - 30) * 60
-        await interaction.response.send_message(f"I'll send you a dm when you should get to class buddy",ephemeral = True)
-
         if person is None:
             yellMember = interaction.user
         else:
             yellMember = person
 
-        if timeTo > 0:
-            await asyncio.sleep(timeTo)
-            await yellMember.send(f"{yellMember.mention} GET TO CLASS BUDDY!!!! It's in 30 MINUTES")
-            print("YELLING")
-        else:
-            await yellMember.send(f"{yellMember.mention} GET TO CLASS BUDDY!!!! It's in {timeTo} MINUTES",ephemeral = True)
-            print("YELLING")
+        await RemindUser(timeTo, yellMember)
+        await interaction.response.send_message(f"I'll send them a dm when they should get to class buddy",ephemeral = True)
 
     else: # Error handling for no TimeSheet
         await interaction.response.send_message(f"Listen buddy, {check} doesn't currently have a time sheet",ephemeral = True)
