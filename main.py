@@ -45,7 +45,6 @@ Channels = []
 Guilds = []
 Names = []
 TimeSheets = []
-ClassNames = []
 freeMessages = {"":0}
 
 # File paths
@@ -110,12 +109,13 @@ if os.path.isfile(sheetsPath):
             lineSplit = line[:-1].split(",") # Sepeate the infromation for each class
             for i in range(len(lineSplit)): 
                 # Add "empty" timeslot
-                TimeSheets[userIndex][dayIndex].append([0.0,0.0])
+                TimeSheets[userIndex][dayIndex].append([0.0,0.0, "Class Name"])
                 
                 # Replace the start & end times with the correct times
                 times = lineSplit[i].split(" ")
                 TimeSheets[userIndex][dayIndex][i][0] = float(times[0])
                 TimeSheets[userIndex][dayIndex][i][1] = float(times[1])
+                TimeSheets[userIndex][dayIndex][i][2] = str(times[2])
 
             # Sort the day based on start time
             TimeSheets[userIndex][dayIndex] = sorted(TimeSheets[userIndex][dayIndex],key=lambda x: (x[0]))
@@ -197,8 +197,8 @@ async def getText (image):
 
 # Add a time to sheet (create one if none exists)
 @client.tree.command(description = "Adds a time to your current timesheet. If a timesheet does not exist, creates one first", name = "add")
-@app_commands.describe(weekday = "WeekDay that you would like to add the time to (In words)",starttime = "Starting time of the class in 24hour format seperated by : (ex: 1:59)",endtime = "Ending time of the class in 24hour format seperated by : (ex: 23:59)")
-async def add(interaction: discord.Interaction, weekday:str, starttime:str, endtime:str):
+@app_commands.describe(weekday = "WeekDay that you would like to add the time to (In words)",starttime = "Starting time of the class in 24hour format seperated by : (ex: 1:59)",endtime = "Ending time of the class in 24hour format seperated by : (ex: 23:59)", classname = "The Name of your class (When using imageToSchedule names will be formatted like CIS*2500)")
+async def add(interaction: discord.Interaction, weekday:str, starttime:str, endtime:str, classname:str = "No Name"):
     if (weekday.lower() in WeekDays): # Makes sure the user entered the correct weekday
 
         # if hour is 24 set to 0
@@ -238,7 +238,7 @@ async def add(interaction: discord.Interaction, weekday:str, starttime:str, endt
                     return
 
             # Add the timesheet & sort it
-            TimeSheets[Names.index(str(interaction.user))][date].append([float(startnum), float(endnum)])
+            TimeSheets[Names.index(str(interaction.user))][date].append([float(startnum), float(endnum), classname])
             TimeSheets[Names.index(str(interaction.user))][date] = sorted(TimeSheets[Names.index(str(interaction.user))][date],key=lambda x: (x[0]))
             await interaction.response.send_message(f"Yeah, I Added the time: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
             
@@ -258,7 +258,7 @@ async def add(interaction: discord.Interaction, weekday:str, starttime:str, endt
                 f.write(nameLine[:-1])
 
             # Adds time to correct day on created TimeSheet & Sort it
-            TimeSheets[Names.index(str(interaction.user))][date].append([float(startnum), float(endnum)])
+            TimeSheets[Names.index(str(interaction.user))][date].append([float(startnum), float(endnum), classname])
             TimeSheets[Names.index(str(interaction.user))][date] = sorted(TimeSheets[Names.index(str(interaction.user))][date],key=lambda x: (x[0]))
             await interaction.response.send_message(message + f"\nYeah, I Added the time: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
 
@@ -268,7 +268,7 @@ async def add(interaction: discord.Interaction, weekday:str, starttime:str, endt
             for user in range (len(TimeSheets)):
                 for day in range (len(TimeSheets[user])):
                     for classes in range (len(TimeSheets[user][day])):
-                        sheetLine += f"{TimeSheets[user][day][classes][0]} {TimeSheets[user][day][classes][1]}," # Classses are seperated by commas
+                        sheetLine += f"{TimeSheets[user][day][classes][0]} {TimeSheets[user][day][classes][1]} {TimeSheets[user][day][classes][2]}," # Classses are seperated by commas
                     if (len(TimeSheets[user][day])) >=   1:
                         f.write(sheetLine[:-1] + "\n") # Days are seperated with newlines
                     else:
@@ -280,9 +280,9 @@ async def add(interaction: discord.Interaction, weekday:str, starttime:str, endt
         await interaction.response.send_message("Are you dumb? That's not a weekday",ephemeral = True)
 
 # Remove a time from sheet
-@client.tree.command(description = "Removes a time from your timesheet, uses the timeslots given in /schedule", name = "remove")
-@app_commands.describe(weekday = "WeekDay that you would like to remove the time from (In words)",timeslot = "The timeslot of the class you would like to remove (indicated with /schedule)")
-async def remove(interaction: discord.Interaction, weekday:str, timeslot:str):
+@client.tree.command(description = "Removes a time from your timesheet", name = "remove")
+@app_commands.describe(weekday = "WeekDay that you would like to remove the time from (In words)",classname = "the Name of the class or the timeslot indicated with /schedule)")
+async def remove(interaction: discord.Interaction, weekday:str, classname:str):
     
     if str(interaction.user) in Names: #Checks if user has a TimeSheet
         # Converts text input to floats
@@ -290,7 +290,20 @@ async def remove(interaction: discord.Interaction, weekday:str, timeslot:str):
 
         if (weekday.lower() in WeekDays): # Make sure the user entered a correct weekday
             date = WeekDays.index(weekday.lower())
-            if (int(timeslot) <= len(Use[date]) and int(timeslot) > 0): # Make sure the timeslot exists
+
+            if classname != "No Name" and any(classname in sublist for sublist in Use[date]):
+                timeslot = 1
+                for list in range (len(Use[date])):
+                    if classname in Use[date][list][2]:
+                        timeslot = list + 1
+                        break
+            elif classname.isdigit():
+                timeslot = int(classname)
+            else:
+                await interaction.response.send_message("Hey buddy! That class doesn't exist!",ephemeral = True)
+                return
+
+            if (timeslot <= len(Use[date]) and timeslot > 0): # Make sure the timeslot exists
 
                 # Find the written times (in order to post the time removed)
                 hourS = math.floor(float(Use[date][int(timeslot) - 1][0]))
@@ -305,11 +318,14 @@ async def remove(interaction: discord.Interaction, weekday:str, timeslot:str):
                 #Change text file to store updated Array
                 sheetLine = ""
                 with open(sheetsPath, 'w') as f:
-                    for user in range (len(TimeSheets) - 1):
+                    for user in range (len(TimeSheets)):
                         for day in range (len(TimeSheets[user])):
                             for classes in range (len(TimeSheets[user][day])):
-                                sheetLine += f"{TimeSheets[user][day][classes][0]} {TimeSheets[user][day][classes][1]}," # Classses are seperated by commas
-                            f.write(sheetLine[:-1] + "\n") # Days are seperated with newlines
+                                sheetLine += f"{TimeSheets[user][day][classes][0]} {TimeSheets[user][day][classes][1]} {TimeSheets[user][day][classes][2]}," # Classses are seperated by commas
+                            if (len(TimeSheets[user][day])) >=   1:
+                                f.write(sheetLine[:-1] + "\n") # Days are seperated with newlines
+                            else:
+                                f.write("\n")
                             sheetLine = ""
                         f.write("New User\n") #Users are seperated with "New User"
             else: # Error handling for non-existent timeslot
@@ -346,7 +362,10 @@ async def schedule(interaction: discord.Interaction, person: discord.User = None
                 hourE = math.floor(float(times[1]))
                 minuteE = round((float(times[1])%1)*60)
 
-                schedule += f"Slot {CurSheet[day].index(times) + 1}: {hourS}:{str(minuteS).ljust(2,'0')} - {hourE}:{str(minuteE).ljust(2,'0')}\n" # Add time to text
+                if times[2] != "No Name":
+                    schedule += f"{times[2]}: {hourS}:{str(minuteS).ljust(2,'0')} - {hourE}:{str(minuteE).ljust(2,'0')}\n" # Add time to text
+                else:
+                    schedule += f"Slot {CurSheet[day].index(times) + 1}: {hourS}:{str(minuteS).ljust(2,'0')} - {hourE}:{str(minuteE).ljust(2,'0')}\n" # Add time to text
             schedule += "\n"
 
         await interaction.response.send_message(schedule,ephemeral = True)
@@ -460,11 +479,14 @@ async def clear(interaction: discord.Interaction):
         #Change text file to store updated Array
         sheetLine = ""
         with open(sheetsPath, 'w') as f:
-            for user in range (len(TimeSheets) - 1):
+            for user in range (len(TimeSheets)):
                 for day in range (len(TimeSheets[user])):
                     for classes in range (len(TimeSheets[user][day])):
-                        sheetLine += f"{TimeSheets[user][day][classes][0]} {TimeSheets[user][day][classes][1]}," # Classses are seperated by commas
-                    f.write(sheetLine[:-1] + "\n") # Days are seperated with newlines
+                        sheetLine += f"{TimeSheets[user][day][classes][0]} {TimeSheets[user][day][classes][1]} {TimeSheets[user][day][classes][2]}," # Classses are seperated by commas
+                    if (len(TimeSheets[user][day])) >=   1:
+                        f.write(sheetLine[:-1] + "\n") # Days are seperated with newlines
+                    else:
+                        f.write("\n")
                     sheetLine = ""
                 f.write("New User\n") #Users are seperated with "New User"
 
