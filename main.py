@@ -194,6 +194,37 @@ async def getText (image):
     
     return pytesseract.image_to_string(img)[:-1]
 
+# Update timesheet file to store new time
+async def TimeSheetToFile():
+    sheetLine = ""
+    with open(sheetsPath, 'w') as f:
+        for user in range (len(TimeSheets)):
+            for day in range (len(TimeSheets[user])):
+                for classes in range (len(TimeSheets[user][day])):
+                    sheetLine += f"{TimeSheets[user][day][classes][0]} {TimeSheets[user][day][classes][1]} {TimeSheets[user][day][classes][2]}," # Classses are seperated by commas ({start} {end} {name}, )
+                if (len(TimeSheets[user][day])) >=   1:
+                    f.write(sheetLine[:-1] + "\n") # Days are seperated with newlines
+                else:
+                    f.write("\n")
+                sheetLine = ""
+            f.write("New User\n") #Users are seperated with "New User"
+async def NamesToFile():
+    nameLine = ""
+    with open(namesPath, 'w') as f:
+        for user in range(len(Names)):
+            nameLine += f"{Names[user]},"
+        f.write(nameLine[:-1])
+async def ChannelToFile():
+    with open(channelPath, 'w') as f:
+        for i in range(len(Guilds)):
+            f.write(f"{Guilds[i]},{Channels[i]}\n")
+async def FreeToFile():
+    with open(freePath, 'w') as f:
+        for user in freeMessages:
+            f.write(f"{user},{freeMessages[user]}\n")
+
+
+
 
 # Add a time to sheet (create one if none exists)
 @client.tree.command(description = "Adds a time to your current timesheet. If a timesheet does not exist, creates one first", name = "add")
@@ -240,7 +271,12 @@ async def add(interaction: discord.Interaction, weekday:str, starttime:str, endt
             # Add the timesheet & sort it
             TimeSheets[Names.index(str(interaction.user))][date].append([float(startnum), float(endnum), classname])
             TimeSheets[Names.index(str(interaction.user))][date] = sorted(TimeSheets[Names.index(str(interaction.user))][date],key=lambda x: (x[0]))
-            await interaction.response.send_message(f"Yeah, I Added the time: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
+            
+            # If the user entered a class name, include it in the message
+            if classname != "No Class":
+                await interaction.response.send_message(message + f"\nYeah, I Added the class {classname}: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
+            else:
+                await interaction.response.send_message(message + f"\nYeah, I Added the time: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
             
         else:
             # Creates time sheet for user if one does not exist
@@ -251,30 +287,20 @@ async def add(interaction: discord.Interaction, weekday:str, starttime:str, endt
             message += f"*Adjusts Glasses* I created a new time sheet for {str(interaction.user)}"
 
             # Update user file to store new user
-            nameLine = ""
-            with open(namesPath, 'w') as f:
-                for user in range(len(Names)):
-                    nameLine += f"{Names[user]},"
-                f.write(nameLine[:-1])
+            NamesToFile()
 
             # Adds time to correct day on created TimeSheet & Sort it
             TimeSheets[Names.index(str(interaction.user))][date].append([float(startnum), float(endnum), classname])
             TimeSheets[Names.index(str(interaction.user))][date] = sorted(TimeSheets[Names.index(str(interaction.user))][date],key=lambda x: (x[0]))
-            await interaction.response.send_message(message + f"\nYeah, I Added the time: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
+
+            # If the user entered a class name, include it in the message
+            if classname != "No Class":
+                await interaction.response.send_message(message + f"\nYeah, I Added the class {classname}: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
+            else:
+                await interaction.response.send_message(message + f"\nYeah, I Added the time: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
 
         #Change text file to store updated Array
-        sheetLine = ""
-        with open(sheetsPath, 'w') as f:
-            for user in range (len(TimeSheets)):
-                for day in range (len(TimeSheets[user])):
-                    for classes in range (len(TimeSheets[user][day])):
-                        sheetLine += f"{TimeSheets[user][day][classes][0]} {TimeSheets[user][day][classes][1]} {TimeSheets[user][day][classes][2]}," # Classses are seperated by commas
-                    if (len(TimeSheets[user][day])) >=   1:
-                        f.write(sheetLine[:-1] + "\n") # Days are seperated with newlines
-                    else:
-                        f.write("\n")
-                    sheetLine = ""
-                f.write("New User\n") #Users are seperated with "New User"
+        TimeSheetToFile()
 
     else: # Error handling for incorrect week spelling
         await interaction.response.send_message("Are you dumb? That's not a weekday",ephemeral = True)
@@ -312,22 +338,12 @@ async def remove(interaction: discord.Interaction, weekday:str, classname:str):
                 minuteE = math.floor((float(Use[date][int(timeslot) - 1][1])%1)*60)
                 
                 # Remove the timeslot requested
-                await interaction.response.send_message(f"ermm... this is awkward, I guess i'll remove time slot: {hourS}:{str(minuteS).ljust(2,'0')} - {hourE}:{str(minuteE).ljust(2,'0')} on {str(weekday).capitalize()}",ephemeral = True)
+                await interaction.response.send_message(f"ermm... this is awkward, I guess i'll remove the class from {hourS}:{str(minuteS).ljust(2,'0')} - {hourE}:{str(minuteE).ljust(2,'0')} on {str(weekday).capitalize()}",ephemeral = True)
                 Use[date].pop(int(timeslot) - 1)
 
                 #Change text file to store updated Array
-                sheetLine = ""
-                with open(sheetsPath, 'w') as f:
-                    for user in range (len(TimeSheets)):
-                        for day in range (len(TimeSheets[user])):
-                            for classes in range (len(TimeSheets[user][day])):
-                                sheetLine += f"{TimeSheets[user][day][classes][0]} {TimeSheets[user][day][classes][1]} {TimeSheets[user][day][classes][2]}," # Classses are seperated by commas
-                            if (len(TimeSheets[user][day])) >=   1:
-                                f.write(sheetLine[:-1] + "\n") # Days are seperated with newlines
-                            else:
-                                f.write("\n")
-                            sheetLine = ""
-                        f.write("New User\n") #Users are seperated with "New User"
+                TimeSheetToFile()
+
             else: # Error handling for non-existent timeslot
                 await interaction.response.send_message("Hey buddy! That timeslot doesn't exist!",ephemeral = True)
         else: # Error handling for incorrect week spelling
@@ -477,18 +493,7 @@ async def clear(interaction: discord.Interaction):
             CurSheet[day].clear()
 
         #Change text file to store updated Array
-        sheetLine = ""
-        with open(sheetsPath, 'w') as f:
-            for user in range (len(TimeSheets)):
-                for day in range (len(TimeSheets[user])):
-                    for classes in range (len(TimeSheets[user][day])):
-                        sheetLine += f"{TimeSheets[user][day][classes][0]} {TimeSheets[user][day][classes][1]} {TimeSheets[user][day][classes][2]}," # Classses are seperated by commas
-                    if (len(TimeSheets[user][day])) >=   1:
-                        f.write(sheetLine[:-1] + "\n") # Days are seperated with newlines
-                    else:
-                        f.write("\n")
-                    sheetLine = ""
-                f.write("New User\n") #Users are seperated with "New User"
+        TimeSheetToFile()
 
         await interaction.response.send_message("Wow buddy, why would you remove your schedule... classes are so fun! Ok... I'll do it",ephemeral = True)
     else:
@@ -533,9 +538,7 @@ async def yellChannel(interaction: discord.Interaction, chosenchannel: discord.T
         Channels.append(chosenchannel.id)
 
     # Update the text file to contain the new guild and channel id
-    with open(channelPath, 'w') as f:
-        for i in range(len(Guilds)):
-            f.write(f"{Guilds[i]},{Channels[i]}\n")
+    ChannelToFile()
     
     await interaction.response.send_message(f"Changed channel that I will yell at people in to {chosenchannel.name}", ephemeral = True)
 
@@ -676,9 +679,6 @@ async def RemindMe(interaction: discord.Interaction, person: discord.User = None
     else: # Error handling for no TimeSheet
         await interaction.response.send_message(f"Listen buddy, {check} doesn't currently have a time sheet",ephemeral = True)
         
-
-    
-
 # On message Events
 @client.event
 async def on_message(message):
@@ -702,9 +702,7 @@ async def on_message(message):
                     freeMessages.pop(message.author.name)
 
                 # Update file
-                with open(freePath, 'w') as f:
-                    for user in freeMessages:
-                        f.write(f"{user},{freeMessages[user]}\n")
+                FreeToFile()
             else:
                 # If the guild has a chosen channel (and that channel exists) yell in that channel
                 if message.guild.id in Guilds and client.get_channel(Channels[Guilds.index(message.guild.id)]) != None:
