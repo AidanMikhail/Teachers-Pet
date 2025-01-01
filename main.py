@@ -4,6 +4,7 @@ import io
 import os
 import math
 import random
+import re
 import discord
 
 # API Key protection
@@ -551,13 +552,29 @@ async def ScheduleFromImage(interaction: discord.Interaction, schedule: discord.
 
     i = 0
     date = None
+
+    name = None
+    classNames = []
+    namesUsed = 0
+
     while i < len(lines):
         # Ignore all exams, DE classes, dates (/) or empty lines
         if "EXAM" in lines[i] or "Distance Education" in lines[i] or "/" in lines[i] or not lines[i]:
             i += 1 
+        # If the line is a class code add it to a list of class codes (to be stored for later)
+        elif "*" in lines[i]:
+            classNames.append(re.sub("[a-z]", "", lines[i].split("*")[0] + "*" + lines[i].split("*")[1])) # Remove all non-uppercase letters (reading errors)
+            i += 1
         # If it is a Lecture or Lab add it
         elif "LEC" in lines[i] or "LAB" in lines[i]:
             use = lines[i].split(" ") # Get each piece of information
+
+            if "LEC" in lines[i]: # If it's a lecture set the name to the class code assosciated with that positio
+                name = classNames[namesUsed] + " LEC"
+                namesUsed += 1
+            else: # If it's a lab set the name to the same as the previous (the lecture)
+                name = classNames[namesUsed - 1] + " LAB"
+
             for day in range(len(use[1])): # Go through each day
 
                 # Convert the letter to the actual date
@@ -573,11 +590,11 @@ async def ScheduleFromImage(interaction: discord.Interaction, schedule: discord.
 
                 # If it's not a h (Thursdays) same time to timesheet
                 if use[1][day] != "h":
-                    await add(interaction, date, convertTo24(use[2],use[3]), convertTo24(use[5],use[6]))
+                    await add(interaction, date, convertTo24(use[2],use[3]), convertTo24(use[5],use[6]), name)
 
             i += 1
         else:
-            i + 1
+            i += 1
 
 # Remind the person of their next class 30 minutes before it starts
 @client.tree.command(description = "Notify the user of their next class 30 minutes before it begins", name = "remindme")
