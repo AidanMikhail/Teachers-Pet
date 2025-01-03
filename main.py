@@ -185,7 +185,7 @@ async def RemindUser(timeTo, yellMember):
         await asyncio.sleep(timeTo)
         await yellMember.send(f"{yellMember.mention} GET TO CLASS BUDDY!!!! It's in 30 MINUTES")
     else:
-        await yellMember.send(f"{yellMember.mention} GET TO CLASS BUDDY!!!! It's in {timeTo} MINUTES",ephemeral = True)
+        await yellMember.send(f"{yellMember.mention} GET TO CLASS BUDDY!!!! It's in {timeTo} MINUTES")
     
 # Get text from image
 async def getText (image):
@@ -684,7 +684,8 @@ async def RemindMe(interaction: discord.Interaction, person: discord.User = None
             await interaction.response.send_message(f"Listen buddy, {check}'s schedule is empty... they should fix that",ephemeral = True)
             return
         
-        timeTo = (((dayTo * 1140) + (hourTo * 24) + minTo) - 30) * 60
+        timeTo = (dayTo * 86400) + (hourTo * 3600) + (minTo * 60)
+
         if person is None:
             yellMember = interaction.user
         else:
