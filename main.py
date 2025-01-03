@@ -274,8 +274,8 @@ async def add(interaction: discord.Interaction, weekday:str, starttime:str, endt
             TimeSheets[Names.index(str(interaction.user))][date] = sorted(TimeSheets[Names.index(str(interaction.user))][date],key=lambda x: (x[0]))
             
             # If the user entered a class name, include it in the message
-            if classname != "No Class":
-                await interaction.response.send_message(f"\nYeah, I Added the class: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
+            if classname != "No Name":
+                await interaction.response.send_message(f"\nYeah, I Added the class {classname}: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
             else:
                 await interaction.response.send_message(f"\nYeah, I Added the time: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
             
@@ -288,20 +288,20 @@ async def add(interaction: discord.Interaction, weekday:str, starttime:str, endt
             message += f"*Adjusts Glasses* I created a new time sheet for {str(interaction.user)}"
 
             # Update user file to store new user
-            NamesToFile()
+            await NamesToFile()
 
             # Adds time to correct day on created TimeSheet & Sort it
             TimeSheets[Names.index(str(interaction.user))][date].append([float(startnum), float(endnum), classname])
             TimeSheets[Names.index(str(interaction.user))][date] = sorted(TimeSheets[Names.index(str(interaction.user))][date],key=lambda x: (x[0]))
 
             # If the user entered a class name, include it in the message
-            if classname != "No Class":
-                await interaction.response.send_message(message + f"\nYeah, I Added the class: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
+            if classname != "No Name":
+                await interaction.response.send_message(message + f"\nYeah, I Added the class {classname}: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
             else:
                 await interaction.response.send_message(message + f"\nYeah, I Added the time: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
 
         #Change text file to store updated Array
-        TimeSheetToFile()
+        await TimeSheetToFile()
 
     else: # Error handling for incorrect week spelling
         await interaction.response.send_message("Are you dumb? That's not a weekday",ephemeral = True)
@@ -343,7 +343,7 @@ async def remove(interaction: discord.Interaction, weekday:str, classname:str):
                 Use[date].pop(int(timeslot) - 1)
 
                 #Change text file to store updated Array
-                TimeSheetToFile()
+                await TimeSheetToFile()
 
             else: # Error handling for non-existent timeslot
                 await interaction.response.send_message("Hey buddy! That timeslot doesn't exist!",ephemeral = True)
@@ -494,7 +494,7 @@ async def clear(interaction: discord.Interaction):
             CurSheet[day].clear()
 
         #Change text file to store updated Array
-        TimeSheetToFile()
+        await TimeSheetToFile()
 
         await interaction.response.send_message("Wow buddy, why would you remove your schedule... classes are so fun! Ok... I'll do it",ephemeral = True)
     else:
@@ -539,7 +539,7 @@ async def yellChannel(interaction: discord.Interaction, chosenchannel: discord.T
         Channels.append(chosenchannel.id)
 
     # Update the text file to contain the new guild and channel id
-    ChannelToFile()
+    await ChannelToFile()
     
     await interaction.response.send_message(f"Changed channel that I will yell at people in to {chosenchannel.name}", ephemeral = True)
 
@@ -719,7 +719,7 @@ async def on_message(message):
                     freeMessages.pop(message.author.name)
 
                 # Update file
-                FreeToFile()
+                await FreeToFile()
             else:
                 # If the guild has a chosen channel (and that channel exists) yell in that channel
                 if message.guild.id in Guilds and client.get_channel(Channels[Guilds.index(message.guild.id)]) != None:
