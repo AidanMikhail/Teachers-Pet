@@ -275,9 +275,9 @@ async def add(interaction: discord.Interaction, weekday:str, starttime:str, endt
             
             # If the user entered a class name, include it in the message
             if classname != "No Class":
-                await interaction.response.send_message(message + f"\nYeah, I Added the class {classname}: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
+                await interaction.response.send_message(f"\nYeah, I Added the class {classname}: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
             else:
-                await interaction.response.send_message(message + f"\nYeah, I Added the time: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
+                await interaction.response.send_message(f"\nYeah, I Added the time: {starttime} - {endtime} on {weekday.capitalize()}",ephemeral = True)
             
         else:
             # Creates time sheet for user if one does not exist
