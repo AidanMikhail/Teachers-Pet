@@ -116,7 +116,7 @@ if os.path.isfile(sheetsPath):
                 times = lineSplit[i].split(" ")
                 TimeSheets[userIndex][dayIndex][i][0] = float(times[0])
                 TimeSheets[userIndex][dayIndex][i][1] = float(times[1])
-                TimeSheets[userIndex][dayIndex][i][2] = str(times[2])
+                TimeSheets[userIndex][dayIndex][i][2] = str(times[2]).replace("-_-"," ")
 
             # Sort the day based on start time
             TimeSheets[userIndex][dayIndex] = sorted(TimeSheets[userIndex][dayIndex],key=lambda x: (x[0]))
@@ -124,7 +124,7 @@ if os.path.isfile(sheetsPath):
         else: # Create an empty list if the day has no times
             TimeSheets[userIndex].append([])
             dayIndex += 1
-
+    TimeSheets.remove([])
 
 # Update stored "Free" messages dictionary from saved text file
 if os.path.isfile(freePath):
@@ -137,6 +137,8 @@ if os.path.isfile(freePath):
         # Split the line into username and amount of messages & add to dictionary
         lineSplit = line.split(',')
         freeMessages.update({lineSplit[0]:int(lineSplit[1])})
+
+print(f"Names: {Names}\nTimeSheets: {TimeSheets}\n")
 
 # Dropdown menu / Stop function
 class Answer(discord.ui.Select):
@@ -180,12 +182,19 @@ def convertTo24(time, half):
         return time
     
 # Used to keep timer going on reminder
-async def RemindUser(timeTo, yellMember):
+async def RemindUser(timeTo, yellMember, className):
     if timeTo > 0:
         await asyncio.sleep(timeTo)
-        await yellMember.send(f"{yellMember.mention} GET TO CLASS BUDDY!!!! It's in 30 MINUTES")
+
+        if className != "No Name":
+            await yellMember.send(f"{yellMember.mention} GET TO {className} BUDDY!!!! It's in 30 MINUTES")
+        else:
+            await yellMember.send(f"{yellMember.mention} GET TO CLASS BUDDY!!!! It's in 30 MINUTES")
     else:
-        await yellMember.send(f"{yellMember.mention} GET TO CLASS BUDDY!!!! It's in {timeTo} MINUTES")
+        if className != "No Name":
+            await yellMember.send(f"{yellMember.mention} GET TO {className} BUDDY!!!! It's in {timeTo} MINUTES")
+        else:
+            await yellMember.send(f"{yellMember.mention} GET TO CLASS BUDDY!!!! It's in {timeTo} MINUTES")
     
 # Get text from image
 async def getText (image):
@@ -202,23 +211,27 @@ async def TimeSheetToFile():
         for user in range (len(TimeSheets)):
             for day in range (len(TimeSheets[user])):
                 for classes in range (len(TimeSheets[user][day])):
-                    sheetLine += f"{TimeSheets[user][day][classes][0]} {TimeSheets[user][day][classes][1]} {TimeSheets[user][day][classes][2]}," # Classses are seperated by commas ({start} {end} {name}, )
+                    printname = str(TimeSheets[user][day][classes][2]).replace(" ", "-_-")
+                    sheetLine += f"{TimeSheets[user][day][classes][0]} {TimeSheets[user][day][classes][1]} {printname}," # Classses are seperated by commas ({start} {end} {name}, )
                 if (len(TimeSheets[user][day])) >=   1:
                     f.write(sheetLine[:-1] + "\n") # Days are seperated with newlines
                 else:
                     f.write("\n")
                 sheetLine = ""
             f.write("New User\n") #Users are seperated with "New User"
+
 async def NamesToFile():
     nameLine = ""
     with open(namesPath, 'w') as f:
         for user in range(len(Names)):
             nameLine += f"{Names[user]},"
         f.write(nameLine[:-1])
+
 async def ChannelToFile():
     with open(channelPath, 'w') as f:
         for i in range(len(Guilds)):
             f.write(f"{Guilds[i]},{Channels[i]}\n")
+
 async def FreeToFile():
     with open(freePath, 'w') as f:
         for user in freeMessages:
@@ -250,6 +263,12 @@ async def add(interaction: discord.Interaction, weekday:str, starttime:str, endt
         if (float(starttime.split(":")[0]) < 0 or float(starttime.split(":")[0]) >= 24) or (float(endtime.split(":")[0]) < 0 or float(endtime.split(":")[0]) >= 24) or (float(starttime.split(":")[1]) < 0 or float(starttime.split(":")[1]) >= 60) or (float(endtime.split(":")[1]) < 0 or float(endtime.split(":")[1]) >= 60) or startnum == endnum:
             await interaction.response.send_message(f"Ummm ACTUALLY that's not a real time...",ephemeral = True)
             return
+        
+        # Make sure that no classes in the same day share the same name
+        for time in TimeSheets[Names.index(str(interaction.user))][date]:
+            if classname != "No Name" and classname == time[2]:
+                await interaction.response.send_message(f"Explain to me how you have 2 classes with the same name buddy!",ephemeral = True)
+                return
 
         # If user entered ending time before starting time switch
         if startnum > endnum:
@@ -318,15 +337,16 @@ async def remove(interaction: discord.Interaction, weekday:str, classname:str):
         if (weekday.lower() in WeekDays): # Make sure the user entered a correct weekday
             date = WeekDays.index(weekday.lower())
 
+            # Check if the class name given is a name
             if classname != "No Name" and any(classname in sublist for sublist in Use[date]):
                 timeslot = 1
                 for list in range (len(Use[date])):
                     if classname in Use[date][list][2]:
                         timeslot = list + 1
                         break
-            elif classname.isdigit():
+            elif classname.isdigit(): # If not check if it is a number (timeslot)
                 timeslot = int(classname)
-            else:
+            else: # If not they messed up
                 await interaction.response.send_message("Hey buddy! That class doesn't exist!",ephemeral = True)
                 return
 
@@ -379,10 +399,11 @@ async def schedule(interaction: discord.Interaction, person: discord.User = None
                 hourE = math.floor(float(times[1]))
                 minuteE = round((float(times[1])%1)*60)
 
+                # If the class has a name print it with the name (if not just print the slot)
                 if times[2] != "No Name":
-                    schedule += f"{times[2]}: {hourS}:{str(minuteS).ljust(2,'0')} - {hourE}:{str(minuteE).ljust(2,'0')}\n" # Add time to text
+                    schedule += f"{times[2]} ({CurSheet[day].index(times) + 1}): {hourS}:{str(minuteS).ljust(2,'0')} - {hourE}:{str(minuteE).ljust(2,'0')}\n" # Add time to text
                 else:
-                    schedule += f"Slot {CurSheet[day].index(times) + 1}: {hourS}:{str(minuteS).ljust(2,'0')} - {hourE}:{str(minuteE).ljust(2,'0')}\n" # Add time to text
+                    schedule += f"Class ({CurSheet[day].index(times) + 1}): {hourS}:{str(minuteS).ljust(2,'0')} - {hourE}:{str(minuteE).ljust(2,'0')}\n" # Add time to text
             schedule += "\n"
 
         await interaction.response.send_message(schedule,ephemeral = True)
@@ -409,13 +430,14 @@ async def next(interaction: discord.Interaction, person: discord.User = None):
     if check in Names: # Checks if user has a TimeSheet
         CurSheet = TimeSheets[Names.index(check)]
 
-        # The class is the same day
+        # The class is later in the day
         for time in range(len(CurSheet[datetime.datetime.now(timezone).weekday()])): # Check each timeslot in the current day for a next class
             if CurSheet[datetime.datetime.now(timezone).weekday()][time][0] > curTime:
                 nextClass = CurSheet[datetime.datetime.now(timezone).weekday()][time][0]
-                dayTo = 0
-                hourTo = int(nextClass) - int(curTime)
+                dayTo = 0 # Since the class is the same day, dayTo is always 0
+                hourTo = int(nextClass) - int(curTime) # Hours left are the non decimal nnumber subtracted (since it comes later hour is always after)
                 
+                # If the minute is smaller remove one from hour and substract the other way instead
                 if (nextClass % 1) >= (curTime % 1):
                     minTo = round((nextClass % 1) * 60) - round((curTime % 1) * 60)
                 else:
@@ -423,57 +445,79 @@ async def next(interaction: discord.Interaction, person: discord.User = None):
                         hourTo -= 1
                     minTo = 60 - (round((curTime % 1) * 60) - round((nextClass % 1) * 60))
                 
-                await interaction.response.send_message(f"You should be in class like right now... It's only {hourTo} hours and {minTo} minutes away",ephemeral = True)
+                # Prints a different response based of if the class has a name
+                className = CurSheet[datetime.datetime.now(timezone).weekday()][time][2]
+                if className != "No Name":
+                    await interaction.response.send_message(f"You should be in {className} like right now... It's only {hourTo} hours and {minTo} minutes away!",ephemeral = True)
+                else:
+                    await interaction.response.send_message(f"You should be in class like right now... It's only {hourTo} hours and {minTo} minutes away!",ephemeral = True)
                 return
+            
+            # User is currently in class
             elif between(CurSheet[datetime.datetime.now(timezone).weekday()][time][0],CurSheet[datetime.datetime.now(timezone).weekday()][time][1],curTime):
-                await interaction.response.send_message(f"You should be in class... right now. Wait t'ill the professor hears about this one",ephemeral = True)
+                await interaction.response.send_message(f"You should be in class... right now. Wait t'ill the professor hears about this one!",ephemeral = True)
                 return
         
         for day in range(datetime.datetime.now(timezone).weekday() + 1, 7):
             for time in range(len(CurSheet[day])): # Check each timeslot (if they exist)
                 nextClass = CurSheet[day][time][0]
-                dayTo = day - datetime.datetime.now(timezone).weekday()
+                dayTo = day - datetime.datetime.now(timezone).weekday() # Calculate day seperation by substraction
 
+                # If the hour is smaller remove one from day and substract the other way instead
                 if int(nextClass) >= int(curTime):
                     hourTo = int(nextClass) - int(curTime)
                 else:
                     dayTo -= 1
                     hourTo = 24 - (int(curTime) - int(nextClass))
                 
+                # If the minute is smaller remove one from hour and substract the other way instead
                 if (nextClass % 1) >= (curTime % 1):
                     minTo = round((nextClass % 1) * 60) - round((curTime % 1) * 60)
                 else:
                     if hourTo > 0:
                         hourTo -= 1
                     minTo = 60 - (round((curTime % 1) * 60) - round((nextClass % 1) * 60))
-
-                await interaction.response.send_message(f"You should be in class like right now... It's only {dayTo} days, {hourTo} hours and {minTo} minutes away",ephemeral = True)
+                
+                # Prints a different response based of if the class has a name
+                className = CurSheet[datetime.datetime.now(timezone).weekday()][time][2]
+                if className != "No Name":
+                    await interaction.response.send_message(f"You should be in {className} like right now... It's only {dayTo} days, {hourTo} hours and {minTo} minutes away",ephemeral = True)
+                else:
+                    await interaction.response.send_message(f"You should be in class like right now... It's only {dayTo} days, {hourTo} hours and {minTo} minutes away",ephemeral = True)
                 return
         
         for day in range(datetime.datetime.now(timezone).weekday() + 1):
             for time in range(len(CurSheet[day])): # Check each timeslot (if they exist)
                 nextClass = CurSheet[day][time][0]
 
-                dayTo = 7 - (datetime.datetime.now(timezone).weekday() - day)
+                dayTo = 7 - (datetime.datetime.now(timezone).weekday() - day) # Day calculation is different going backwards
 
+                # If the hour is smaller remove one from day and substract the other way instead
                 if int(nextClass) >= int(curTime):
                     hourTo = int(nextClass) - int(curTime)
                 else:
                     dayTo -= 1
                     hourTo = 24 - (int(curTime) - int(nextClass))
                 
+                # If the minute is smaller remove one from hour and substract the other way instead
                 if (nextClass % 1) >= (curTime % 1):
                     minTo = round((nextClass % 1) * 60) - round((curTime % 1) * 60)
                 else:
                     if hourTo > 0:
                         hourTo -= 1
 
+                    # if there is no hour left remove one from the day and set hour to 23 (previous day -1 hour)
                     elif dayTo > 0:
                         dayTo -= 1
                         hourTo = 23
                     minTo = 60 - (round((curTime % 1) * 60) - round((nextClass % 1) * 60))
 
-                await interaction.response.send_message(f"You should be in class like right now... It's only {dayTo} days, {hourTo} hours and {minTo} minutes away",ephemeral = True)
+                # Prints a different response based of if the class has a name
+                className = CurSheet[datetime.datetime.now(timezone).weekday()][time][2]
+                if className != "No Name":
+                    await interaction.response.send_message(f"You should be in {className} like right now... It's only {dayTo} days, {hourTo} hours and {minTo} minutes away",ephemeral = True)
+                else:
+                    await interaction.response.send_message(f"You should be in class like right now... It's only {dayTo} days, {hourTo} hours and {minTo} minutes away",ephemeral = True)
                 return
                 
         # TimeSheet exists but is empty
@@ -498,7 +542,7 @@ async def clear(interaction: discord.Interaction):
 
         await interaction.response.send_message("Wow buddy, why would you remove your schedule... classes are so fun! Ok... I'll do it",ephemeral = True)
     else:
-        await interaction.response.send_message("Listen buddy, You don't currently have a time sheet. Next time create one by adding a time with $Add",ephemeral = True)
+        await interaction.response.send_message("Listen buddy, You don't currently have a time sheet. Next time create one by adding a time with /add",ephemeral = True)
 
 # Shut bot up
 @client.tree.command(description = "Solve for x to gain 5 free messages, allowing you to send messages in class without repercussions", name = "shutup")
@@ -516,11 +560,13 @@ async def stop(interaction: discord.Interaction):
 @client.tree.command(description = "Tells you how many messages during class until the bot can yell at the user", name = "free")
 @app_commands.describe(person = "Mention the user you would like to check, default is yourself")
 async def free(interaction: discord.Interaction, person: discord.User = None):
+    # Choose the user to yell at
     if person != None:
         check = str(person)
     else:
         check = str(interaction.user)
     
+    # If the user has free messages let them know
     if check in freeMessages:
         await interaction.response.send_message(f"{check} has {freeMessages[check]} free messages, just wait",ephemeral = True)
     else:
@@ -541,7 +587,7 @@ async def yellChannel(interaction: discord.Interaction, chosenchannel: discord.T
     # Update the text file to contain the new guild and channel id
     await ChannelToFile()
     
-    await interaction.response.send_message(f"Changed channel that I will yell at people in to {chosenchannel.name}", ephemeral = True)
+    await interaction.response.send_message(f"Changed channel that I will yell at people in to {chosenchannel.name} for {interaction.guild.name}", ephemeral = True)
 
 # Add Schedule from given image
 @client.tree.command(description = "Automatically create your schedule from an image of your WebAdvisor schedule", name = "imagetoschedule")
@@ -617,13 +663,14 @@ async def RemindMe(interaction: discord.Interaction, person: discord.User = None
     if check in Names: # Checks if user has a TimeSheet
         CurSheet = TimeSheets[Names.index(check)]
 
-        # The class is the same day
+        # The class is later in the day
         for time in range(len(CurSheet[datetime.datetime.now(timezone).weekday()])): # Check each timeslot in the current day for a next class
-            if CurSheet[datetime.datetime.now(timezone).weekday()][time][0] >= curTime:
+            if CurSheet[datetime.datetime.now(timezone).weekday()][time][0] > curTime:
                 nextClass = CurSheet[datetime.datetime.now(timezone).weekday()][time][0]
-                dayTo = 0
-                hourTo = int(nextClass) - int(curTime)
+                dayTo = 0 # Since the class is the same day, dayTo is always 0
+                hourTo = int(nextClass) - int(curTime) # Hours left are the non decimal nnumber subtracted (since it comes later hour is always after)
                 
+                # If the minute is smaller remove one from hour and substract the other way instead
                 if (nextClass % 1) >= (curTime % 1):
                     minTo = round((nextClass % 1) * 60) - round((curTime % 1) * 60)
                 else:
@@ -631,20 +678,23 @@ async def RemindMe(interaction: discord.Interaction, person: discord.User = None
                         hourTo -= 1
                     minTo = 60 - (round((curTime % 1) * 60) - round((nextClass % 1) * 60))
                 
+                className = CurSheet[datetime.datetime.now(timezone).weekday()][time][2]
                 foundTime = True
         
         if not foundTime:
             for day in range(datetime.datetime.now(timezone).weekday() + 1, 7):
                 for time in range(len(CurSheet[day])): # Check each timeslot (if they exist)
                     nextClass = CurSheet[day][time][0]
-                    dayTo = day - datetime.datetime.now(timezone).weekday()
+                    dayTo = day - datetime.datetime.now(timezone).weekday() # Calculate day seperation by substraction
 
+                    # If the hour is smaller remove one from day and substract the other way instead
                     if int(nextClass) >= int(curTime):
                         hourTo = int(nextClass) - int(curTime)
                     else:
                         dayTo -= 1
                         hourTo = 24 - (int(curTime) - int(nextClass))
                     
+                    # If the minute is smaller remove one from hour and substract the other way instead
                     if (nextClass % 1) >= (curTime % 1):
                         minTo = round((nextClass % 1) * 60) - round((curTime % 1) * 60)
                     else:
@@ -652,6 +702,7 @@ async def RemindMe(interaction: discord.Interaction, person: discord.User = None
                             hourTo -= 1
                         minTo = 60 - (round((curTime % 1) * 60) - round((nextClass % 1) * 60))
                     
+                    className = CurSheet[datetime.datetime.now(timezone).weekday()][time][2]
                     foundTime = True
         
         if not foundTime:
@@ -659,25 +710,29 @@ async def RemindMe(interaction: discord.Interaction, person: discord.User = None
                 for time in range(len(CurSheet[day])): # Check each timeslot (if they exist)
                     nextClass = CurSheet[day][time][0]
 
-                    dayTo = 7 - (datetime.datetime.now(timezone).weekday() - day)
+                    dayTo = 7 - (datetime.datetime.now(timezone).weekday() - day) # Day calculation is different going backwards
 
+                    # If the hour is smaller remove one from day and substract the other way instead
                     if int(nextClass) >= int(curTime):
                         hourTo = int(nextClass) - int(curTime)
                     else:
                         dayTo -= 1
                         hourTo = 24 - (int(curTime) - int(nextClass))
                     
+                    # If the minute is smaller remove one from hour and substract the other way instead
                     if (nextClass % 1) >= (curTime % 1):
                         minTo = round((nextClass % 1) * 60) - round((curTime % 1) * 60)
                     else:
                         if hourTo > 0:
                             hourTo -= 1
 
+                        # if there is no hour left remove one from the day and set hour to 23 (previous day -1 hour)
                         elif dayTo > 0:
                             dayTo -= 1
                             hourTo = 23
                         minTo = 60 - (round((curTime % 1) * 60) - round((nextClass % 1) * 60))
-                    
+
+                    className = CurSheet[datetime.datetime.now(timezone).weekday()][time][2]
                     foundTime = True
         
         if not foundTime:
@@ -691,12 +746,46 @@ async def RemindMe(interaction: discord.Interaction, person: discord.User = None
         else:
             yellMember = person
 
+        await RemindUser(timeTo, yellMember, className)
         await interaction.response.send_message(f"I'll send them a dm when they should get to class buddy",ephemeral = True)
-        await RemindUser(timeTo, yellMember)
 
     else: # Error handling for no TimeSheet
         await interaction.response.send_message(f"Listen buddy, {check} doesn't currently have a time sheet",ephemeral = True)
-        
+
+# Allow the user to change the name of their class
+@client.tree.command(description = "Rename a class of a certain name (or timeslot)", name = "rename")
+@app_commands.describe(weekday = "The weekday of the class you want to change the name of", classname = "The name of timesheet of the class you would liike to change", newclassname = "The new class name you would like to give it")
+async def RemindMe(interaction: discord.Interaction, weekday:str, classname:str, newclassname:str = "No Name"): 
+    
+    # Converts text input to floats
+    Use = TimeSheets[Names.index(str(interaction.user))]
+
+    if (weekday.lower() in WeekDays): # Make sure the user entered a correct weekday
+        date = WeekDays.index(weekday.lower())
+
+        # Check if the class name given is a name
+        if classname != "No Name" and any(classname in sublist for sublist in Use[date]):
+            timeslot = 1
+            for list in range (len(Use[date])):
+                if classname in Use[date][list][2]:
+                    timeslot = list + 1
+                    break
+        elif classname.isdigit(): # If it isn't a valid name check if it's a nmber (timeslot)
+            timeslot = int(classname)
+        else: # If not they messed up
+            await interaction.response.send_message("Hey buddy! That class doesn't exist!",ephemeral = True)
+            return
+    
+    # Change the name of the selected class
+    oldname = Use[date][timeslot][2]
+    Use[date][timeslot][2] = newclassname
+
+    if oldname != "No Name":
+        await interaction.response.send_message(f"I changed the name of {oldname} ({timeslot}) to {newclassname}. Maybe you shouldn't mess up next time buddy!",ephemeral = True)
+    else:
+        await interaction.response.send_message(f"I changed the name of timeslot ({timeslot}) to {newclassname}. Maybe you shouldn't mess up next time buddy!",ephemeral = True)
+
+
 # On message Events
 @client.event
 async def on_message(message):

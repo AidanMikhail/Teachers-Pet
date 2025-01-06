@@ -4,6 +4,7 @@ A Discord bot to help you know when your classes are (and to stop you from talki
 # Features
 - Add a time to your schedule
 - Add an entire schedule from your WebAdvisor screen (only if attending UoG)
+- Add class names (rename class names)
 - Remove a time from your Scheduke
 - Clear your schedule
 -------------------------------------------------------------------------------------------------------------------------------
@@ -15,7 +16,7 @@ A Discord bot to help you know when your classes are (and to stop you from talki
 - Get the bot to stop yelling at you during class by solving a math equation
 -------------------------------------------------------------------------------------------------------------------------------
 - Global schedule sharing (Your schedule is saved in all servers the bot is in)
-- Information storage throughout versions
+- Information storage throughout versions (No need to redo your schedule every update)
 
 # Requirements
 - Library's (Discord.py & Pytesseract)
