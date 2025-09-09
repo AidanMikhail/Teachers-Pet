@@ -1,3 +1,5 @@
 discord.py
-pytesseract
+easyocr
+pillow
+numpy
 python-dotenv
